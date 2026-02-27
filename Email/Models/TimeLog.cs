@@ -6,7 +6,7 @@ namespace Email.Models
     {
         [Key]
         public int Id { get; set; }
-        public int TaskId { get; set; }
+        public int? TaskId { get; set; }
         public int AccountId { get; set; }
         public string Action { get; set; } = string.Empty;
         public string? OldValue { get; set; }

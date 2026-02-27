@@ -299,6 +299,43 @@ namespace Email.Controllers
             }
         }
 
+        [HttpGet("GetTasksByAssignee/{accountId}")]
+        public async Task<IActionResult> GetTasksByAssignee(int accountId)
+        {
+            try
+            {
+                var tasks = await _context.Tasks
+                    .Where(t => !t.IsDeleted &&
+                           t.Assignments.Any(a => a.AccountId == accountId))
+                    .Select(t => new TaskResponseDTO
+                    {
+                        Id = t.Id,
+                        Title = t.Title,
+                        Description = t.Description,
+                        Status = t.Status,
+                        Priority = t.Priority,
+                        ReporterId = t.ReporterId,
+                        StoryPoints = t.StoryPoints,
+                        ProjectId = t.ProjectId,
+                        ParentTaskId = t.ParentTaskId,
+                        DueDate = t.DueDate,
+                        CreatedAt = t.CreatedAt,
+                        UpdatedAt = t.UpdatedAt,
+                        AssigneeIds = t.Assignments.Select(a => a.AccountId).ToList()
+                    })
+                    .ToListAsync();
+
+                if (!tasks.Any())
+                    return NotFound("No tasks found for this account.");
+
+                return Ok(tasks);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
         // GET tasks by project with role-based visibility
         [HttpGet("GetTasksByProject/{projectId}")]
         public async Task<IActionResult> GetTasksByProject(int projectId, [FromQuery] int requesterId)

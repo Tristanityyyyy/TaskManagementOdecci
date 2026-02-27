@@ -74,6 +74,7 @@ namespace Email.Controllers
                     JoinedAt = DateTime.UtcNow
                 });
 
+
                 // Add Scrum Master as member if different from PM
                 if (scrumMasterId != null && scrumMasterId != projectManagerId)
                 {
@@ -117,7 +118,7 @@ namespace Email.Controllers
                 // Log it
                 _context.TimeLogs.Add(new TimeLog
                 {
-                    TaskId = 0,
+                    TaskId = null,
                     AccountId = creatorId,
                     Action = "ProjectCreated",
                     NewValue = project.Name,
@@ -142,7 +143,12 @@ namespace Email.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { error = ex.Message });
+                return StatusCode(500, new { 
+                    error = ex.Message,
+                    inner = ex.InnerException?.Message,
+                    inner2 = ex.InnerException?.InnerException?.Message
+                });
+
             }
         }
 
@@ -266,7 +272,7 @@ namespace Email.Controllers
 
                 _context.TimeLogs.Add(new TimeLog
                 {
-                    TaskId = 0,
+                    TaskId = null,
                     AccountId = adminId,
                     Action = "ProjectDeleted",
                     OldValue = project.Name,
