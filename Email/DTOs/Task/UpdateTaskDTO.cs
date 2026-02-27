@@ -8,6 +8,7 @@ namespace Email.DTOs.Task
         public string? Description { get; set; }
         public string? Status { get; set; }
         public string? Priority { get; set; }
+        public int? StoryPoints { get; set; }
         public DateTime? DueDate { get; set; }
 
         public int ProjectId { get; set; }          // task belongs to a project

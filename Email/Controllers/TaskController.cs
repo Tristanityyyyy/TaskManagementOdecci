@@ -33,6 +33,7 @@ namespace Email.Controllers
                         Status = t.Status,
                         Priority = t.Priority,
                         ReporterId = t.ReporterId,
+                        StoryPoints = t.StoryPoints,
                         DueDate = t.DueDate,
                         CreatedAt = t.CreatedAt,
                         UpdatedAt = t.UpdatedAt,
@@ -64,6 +65,7 @@ namespace Email.Controllers
                         Status = t.Status,
                         Priority = t.Priority,
                         ReporterId = t.ReporterId,
+                        StoryPoints = t.StoryPoints,
                         DueDate = t.DueDate,
                         CreatedAt = t.CreatedAt,
                         UpdatedAt = t.UpdatedAt,
@@ -84,17 +86,24 @@ namespace Email.Controllers
 
         // POST create task
         [HttpPost("CreateTask")]
-        public async Task<IActionResult> CreateTask([FromBody] CreateTaskDTO dto, [FromQuery] int adminId)
+        public async Task<IActionResult> CreateTask([FromBody] CreateTaskDTO dto, [FromQuery] int creatorId)
         {
             try
             {
+                // Validate story points
+                if (dto.StoryPoints.HasValue && (dto.StoryPoints < 1 || dto.StoryPoints > 5))
+                    return BadRequest("Story points must be between 1 and 5.");
+
                 var task = new TaskItem
                 {
                     Title = dto.Title,
                     Description = dto.Description,
                     Priority = dto.Priority,
                     DueDate = dto.DueDate,
-                    ReporterId = adminId,
+                    StoryPoints = dto.StoryPoints,
+                    ProjectId = dto.ProjectId,
+                    ParentTaskId = dto.ParentTaskId,
+                    ReporterId = creatorId,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
@@ -111,11 +120,10 @@ namespace Email.Controllers
                         {
                             TaskId = task.Id,
                             AccountId = accountId,
-                            AssignedById = adminId,
+                            AssignedById = creatorId,
                             AssignedAt = DateTime.UtcNow
                         });
                     }
-
                     await _context.SaveChangesAsync();
                 }
 
@@ -123,10 +131,10 @@ namespace Email.Controllers
                 _context.TimeLogs.Add(new TimeLog
                 {
                     TaskId = task.Id,
-                    AccountId = adminId,
+                    AccountId = creatorId,
                     Action = "Created",
                     NewValue = task.Title,
-                    Note = "Task created by admin"
+                    Note = dto.ParentTaskId == null ? "Task created" : "Subtask created"
                 });
 
                 await _context.SaveChangesAsync();
@@ -141,7 +149,7 @@ namespace Email.Controllers
 
         // PATCH update task
         [HttpPatch("UpdateTask/{id}")]
-        public async Task<IActionResult> UpdateTask(int id, [FromBody] UpdateTaskDTO dto, [FromQuery] int adminId)
+        public async Task<IActionResult> UpdateTask(int id, [FromBody] UpdateTaskDTO dto, [FromQuery] int updaterId)
         {
             try
             {
@@ -149,6 +157,10 @@ namespace Email.Controllers
 
                 if (task == null || task.IsDeleted)
                     return NotFound("Task not found.");
+
+                // Validate story points
+                if (dto.StoryPoints.HasValue && (dto.StoryPoints < 1 || dto.StoryPoints > 5))
+                    return BadRequest("Story points must be between 1 and 5.");
 
                 var changes = new List<string>();
 
@@ -177,6 +189,11 @@ namespace Email.Controllers
                     changes.Add($"DueDate: {task.DueDate} → {dto.DueDate}");
                     task.DueDate = dto.DueDate;
                 }
+                if (dto.StoryPoints.HasValue && dto.StoryPoints != task.StoryPoints)
+                {
+                    changes.Add($"StoryPoints: {task.StoryPoints} → {dto.StoryPoints}");
+                    task.StoryPoints = dto.StoryPoints;
+                }
 
                 task.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
@@ -187,12 +204,11 @@ namespace Email.Controllers
                     _context.TimeLogs.Add(new TimeLog
                     {
                         TaskId = task.Id,
-                        AccountId = adminId,
+                        AccountId = updaterId,
                         Action = "Updated",
                         NewValue = string.Join(", ", changes),
-                        Note = "Task updated by admin"
+                        Note = "Task updated"
                     });
-
                     await _context.SaveChangesAsync();
                 }
 
@@ -206,7 +222,7 @@ namespace Email.Controllers
 
         // DELETE task (soft delete)
         [HttpDelete("DeleteTask/{id}")]
-        public async Task<IActionResult> DeleteTask(int id, [FromQuery] int adminId)
+        public async Task<IActionResult> DeleteTask(int id, [FromQuery] int deleterId)
         {
             try
             {
@@ -218,18 +234,16 @@ namespace Email.Controllers
                 task.IsDeleted = true;
                 task.UpdatedAt = DateTime.UtcNow;
 
-                // Log it
                 _context.TimeLogs.Add(new TimeLog
                 {
                     TaskId = task.Id,
-                    AccountId = adminId,
+                    AccountId = deleterId,
                     Action = "Deleted",
                     OldValue = task.Title,
-                    Note = "Task deleted by admin"
+                    Note = "Task deleted"
                 });
 
                 await _context.SaveChangesAsync();
-
                 return NoContent();
             }
             catch (Exception ex)
@@ -267,19 +281,110 @@ namespace Email.Controllers
 
                 task.UpdatedAt = DateTime.UtcNow;
 
-                // Log it
                 _context.TimeLogs.Add(new TimeLog
                 {
                     TaskId = id,
                     AccountId = dto.AssignedById,
                     Action = "Assigned",
                     NewValue = string.Join(", ", dto.AssigneeIds),
-                    Note = "Task assigned by admin"
+                    Note = "Task assigned"
                 });
 
                 await _context.SaveChangesAsync();
-
                 return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
+        // GET tasks by project with role-based visibility
+        [HttpGet("GetTasksByProject/{projectId}")]
+        public async Task<IActionResult> GetTasksByProject(int projectId, [FromQuery] int requesterId)
+        {
+            try
+            {
+                var requester = await _context.Accounts.FindAsync(requesterId);
+                if (requester == null)
+                    return NotFound("Account not found.");
+
+                // Admin sees all tasks
+                if (requester.Role == "Admin")
+                {
+                    var allTasks = await _context.Tasks
+                        .Where(t => t.ProjectId == projectId && !t.IsDeleted)
+                        .Select(t => new TaskResponseDTO
+                        {
+                            Id = t.Id,
+                            Title = t.Title,
+                            Description = t.Description,
+                            Status = t.Status,
+                            Priority = t.Priority,
+                            ReporterId = t.ReporterId,
+                            StoryPoints = t.StoryPoints,
+                            DueDate = t.DueDate,
+                            CreatedAt = t.CreatedAt,
+                            UpdatedAt = t.UpdatedAt,
+                            AssigneeIds = t.Assignments.Select(a => a.AccountId).ToList()
+                        })
+                        .ToListAsync();
+                    return Ok(allTasks);
+                }
+
+                // Check project member role
+                var projectMember = await _context.ProjectMembers
+                    .SingleOrDefaultAsync(m => m.ProjectId == projectId && m.AccountId == requesterId);
+
+                if (projectMember == null)
+                    return StatusCode(403, "You are not a member of this project.");
+
+                // PM or Scrum Master sees all tasks
+                if (projectMember.Role == "ProjectManager" ||
+                    projectMember.Role == "ScrumMaster" ||
+                    projectMember.Role == "ProjectManager-ScrumMaster")
+                {
+                    var allTasks = await _context.Tasks
+                        .Where(t => t.ProjectId == projectId && !t.IsDeleted)
+                        .Select(t => new TaskResponseDTO
+                        {
+                            Id = t.Id,
+                            Title = t.Title,
+                            Description = t.Description,
+                            Status = t.Status,
+                            Priority = t.Priority,
+                            ReporterId = t.ReporterId,
+                            StoryPoints = t.StoryPoints,
+                            DueDate = t.DueDate,
+                            CreatedAt = t.CreatedAt,
+                            UpdatedAt = t.UpdatedAt,
+                            AssigneeIds = t.Assignments.Select(a => a.AccountId).ToList()
+                        })
+                        .ToListAsync();
+                    return Ok(allTasks);
+                }
+
+                // Regular member sees only assigned tasks
+                var myTasks = await _context.Tasks
+                    .Where(t => t.ProjectId == projectId && !t.IsDeleted &&
+                           t.Assignments.Any(a => a.AccountId == requesterId))
+                    .Select(t => new TaskResponseDTO
+                    {
+                        Id = t.Id,
+                        Title = t.Title,
+                        Description = t.Description,
+                        Status = t.Status,
+                        Priority = t.Priority,
+                        ReporterId = t.ReporterId,
+                        StoryPoints = t.StoryPoints,
+                        DueDate = t.DueDate,
+                        CreatedAt = t.CreatedAt,
+                        UpdatedAt = t.UpdatedAt,
+                        AssigneeIds = t.Assignments.Select(a => a.AccountId).ToList()
+                    })
+                    .ToListAsync();
+
+                return Ok(myTasks);
             }
             catch (Exception ex)
             {
