@@ -1,0 +1,69 @@
+﻿using Email.Migrations;
+using Email.Models;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Migrations;
+using System.Diagnostics;
+namespace Email.Data
+{
+    public class AccountDbContext : DbContext
+    {
+        public AccountDbContext(DbContextOptions<AccountDbContext> options) : base(options) { }
+        public DbSet<Account> Accounts { get; set; }
+        public DbSet<ApiToken> ApiTokens { get; set; }
+        // Task Management
+        public DbSet<TaskItem> Tasks { get; set; }
+        public DbSet<TaskAssignment> TaskAssignments { get; set; }
+        public DbSet<TaskComment> TaskComments { get; set; }
+        public DbSet<TaskPermission> TaskPermissions { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
+        public DbSet<TimeLog> TimeLogs { get; set; }
+        // Project Management
+        public DbSet<Project> Projects { get; set; }              // 👈 add this
+        public DbSet<ProjectMember> ProjectMembers { get; set; }  // 👈 add this
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            // Task relationships
+            modelBuilder.Entity<TaskAssignment>()
+                .HasOne<TaskItem>()
+                .WithMany(t => t.Assignments)
+                .HasForeignKey(a => a.TaskId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<TaskComment>()
+                .HasOne<TaskItem>()
+                .WithMany(t => t.Comments)
+                .HasForeignKey(c => c.TaskId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<TimeLog>()
+                .HasOne<TaskItem>()
+                .WithMany(t => t.TimeLogs)
+                .HasForeignKey(l => l.TaskId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // TaskItem self-referencing for subtasks
+            modelBuilder.Entity<TaskItem>()
+                .HasOne<TaskItem>()
+                .WithMany(t => t.SubTasks)
+                .HasForeignKey(t => t.ParentTaskId)
+                .OnDelete(DeleteBehavior.Restrict); // 👈 add this
+
+            // Project → Tasks
+            modelBuilder.Entity<TaskItem>()
+                .HasOne<Project>()
+                .WithMany(p => p.Tasks)
+                .HasForeignKey(t => t.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade); // 👈 add this
+
+            // Project → Members
+            modelBuilder.Entity<ProjectMember>()
+                .HasOne<Project>()
+                .WithMany(p => p.Members)
+                .HasForeignKey(m => m.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade); // 👈 add this
+        }
+    }
+}

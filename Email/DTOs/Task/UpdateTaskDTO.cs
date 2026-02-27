@@ -1,0 +1,17 @@
+﻿using Email.Models;
+
+namespace Email.DTOs.Task
+{
+    public class UpdateTaskDTO
+    {
+        public string? Title { get; set; }
+        public string? Description { get; set; }
+        public string? Status { get; set; }
+        public string? Priority { get; set; }
+        public DateTime? DueDate { get; set; }
+
+        public int ProjectId { get; set; }          // task belongs to a project
+        public int? ParentTaskId { get; set; }      // null = main task, has value = subtask
+        public ICollection<TaskItem> SubTasks { get; set; } = new List<TaskItem>(); // child tasks
+    }
+}
