@@ -1,6 +1,6 @@
-﻿using Email.Data;
-using Email.DTOs;
-using Email.Models;
+﻿using TaskManagement.Data;
+using TaskManagement.DTOs;
+using TaskManagement.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -14,7 +14,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Email.Controllers
+namespace TaskManagement.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]

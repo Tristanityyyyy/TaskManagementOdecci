@@ -1,6 +1,6 @@
-﻿using Email.Models;
+﻿using TaskManagement.Models;
 
-namespace Email.DTOs.Task
+namespace TaskManagement.DTOs.Task
 {
     public class UpdateTaskDTO
     {

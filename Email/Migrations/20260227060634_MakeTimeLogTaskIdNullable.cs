@@ -2,7 +2,7 @@
 
 #nullable disable
 
-namespace Email.Migrations
+namespace TaskManagement.Migrations
 {
     /// <inheritdoc />
     public partial class MakeTimeLogTaskIdNullable : Migration

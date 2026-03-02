@@ -1,5 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
-namespace Email.Models
+namespace TaskManagement.Models
 {
     public class TaskAssignment
     {

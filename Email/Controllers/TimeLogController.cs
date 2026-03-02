@@ -1,9 +1,9 @@
-﻿using Email.Data;
-using Email.DTOs.Timelog;
+﻿using TaskManagement.Data;
+using TaskManagement.DTOs.Timelog;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace Email.Controllers
+namespace TaskManagement.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]

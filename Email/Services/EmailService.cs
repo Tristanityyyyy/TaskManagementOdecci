@@ -1,7 +1,7 @@
 ﻿using System.Net;
 using System.Net.Mail;
 
-namespace Email.Services
+namespace TaskManagement.Services
 {
     public class EmailService : IEmailService
     {

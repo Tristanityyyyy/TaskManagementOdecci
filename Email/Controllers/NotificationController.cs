@@ -1,11 +1,11 @@
-﻿using Email.Data;
-using Email.DTOs.Notification;
-using Email.Models;
-using Email.Services;
+﻿using TaskManagement.Data;
+using TaskManagement.DTOs.Notification;
+using TaskManagement.Models;
+using TaskManagement.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace Email.Controllers
+namespace TaskManagement.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]

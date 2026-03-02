@@ -1,4 +1,4 @@
-﻿namespace Email.DTOs.Project
+﻿namespace TaskManagement.DTOs.Project
 {
     public class ProjectResponseDTO
     {

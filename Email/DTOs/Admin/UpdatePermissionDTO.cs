@@ -1,4 +1,4 @@
-﻿namespace Email.DTOs.Admin
+﻿namespace TaskManagement.DTOs.Admin
 {
     public class UpdatePermissionDTO
     {

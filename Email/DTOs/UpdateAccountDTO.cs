@@ -1,5 +1,5 @@
 ﻿
-namespace Email.DTOs
+namespace TaskManagement.DTOs
 {
     public class UpdateAccountDto
     {

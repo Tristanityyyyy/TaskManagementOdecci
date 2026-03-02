@@ -1,4 +1,4 @@
-﻿namespace Email.Services
+﻿namespace TaskManagement.Services
 {
     public interface IEmailService
     {

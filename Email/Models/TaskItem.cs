@@ -2,7 +2,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Diagnostics;
-namespace Email.Models
+namespace TaskManagement.Models
 {
     public class TaskItem
     {

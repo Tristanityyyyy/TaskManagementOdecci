@@ -2,7 +2,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.Metrics;
 
-namespace Email.Models
+namespace TaskManagement.Models
 {
     public class Notification
     {

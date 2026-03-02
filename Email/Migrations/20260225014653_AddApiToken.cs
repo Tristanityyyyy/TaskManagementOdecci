@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace Email.Migrations
+namespace TaskManagement.Migrations
 {
     /// <inheritdoc />
     public partial class AddApiToken : Migration

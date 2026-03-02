@@ -1,4 +1,4 @@
-﻿namespace Email.Models
+﻿namespace TaskManagement.Models
 {
     public class ProjectMember
     {

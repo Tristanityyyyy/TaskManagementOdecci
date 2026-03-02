@@ -1,4 +1,4 @@
-﻿namespace Email.DTOs.Task
+﻿namespace TaskManagement.DTOs.Task
 {
     public class AssignTaskDTO
     {

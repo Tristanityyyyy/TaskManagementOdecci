@@ -1,4 +1,4 @@
-﻿namespace Email.DTOs.Timelog
+﻿namespace TaskManagement.DTOs.Timelog
 {
     public class TimelogResponseDTO
     {

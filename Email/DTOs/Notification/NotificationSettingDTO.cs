@@ -1,4 +1,4 @@
-﻿namespace Email.DTOs.Notification
+﻿namespace TaskManagement.DTOs.Notification
 {
     public class NotificationSettingDTO
     {

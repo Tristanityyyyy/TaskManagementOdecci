@@ -1,9 +1,9 @@
-﻿using Email.Migrations;
-using Email.Models;
+﻿using TaskManagement.Migrations;
+using TaskManagement.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations;
 using System.Diagnostics;
-namespace Email.Data
+namespace TaskManagement.Data
 {
     public class AccountDbContext : DbContext
     {

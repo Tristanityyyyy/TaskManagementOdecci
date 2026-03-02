@@ -1,7 +1,7 @@
-﻿using Email.Data;
+﻿using TaskManagement.Data;
 using Microsoft.EntityFrameworkCore;
-using Email.Models;
-namespace Email
+using TaskManagement.Models;
+namespace TaskManagement
 {
     public class ApiTokenMiddleware
     {

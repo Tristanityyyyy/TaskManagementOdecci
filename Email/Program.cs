@@ -1,7 +1,7 @@
-﻿using Email;
-using Email.Data;
-using Email.Models;
-using Email.Services;
+﻿using TaskManagement;
+using TaskManagement.Data;
+using TaskManagement.Models;
+using TaskManagement.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
