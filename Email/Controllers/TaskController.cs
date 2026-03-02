@@ -1,8 +1,9 @@
-﻿using TaskManagement.Data;
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
+using TaskManagement.Data;
 using TaskManagement.DTOs.Task;
 using TaskManagement.Models;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace TaskManagement.Controllers
 {
@@ -90,9 +91,13 @@ namespace TaskManagement.Controllers
         {
             try
             {
-                // Validate story points
+                // story points
                 if (dto.StoryPoints.HasValue && (dto.StoryPoints < 1 || dto.StoryPoints > 5))
                     return BadRequest("Story points must be between 1 and 5.");
+
+                //  duplicate assigneeIds 
+                if (dto.AssigneeIds.Distinct().Count() != dto.AssigneeIds.Count)
+                    return BadRequest("Duplicate assignee IDs are not allowed.");
 
                 var task = new TaskItem
                 {
@@ -111,7 +116,7 @@ namespace TaskManagement.Controllers
                 _context.Tasks.Add(task);
                 await _context.SaveChangesAsync();
 
-                // Assign users if provided
+                // assign users 
                 if (dto.AssigneeIds.Any())
                 {
                     foreach (var accountId in dto.AssigneeIds)
@@ -127,7 +132,7 @@ namespace TaskManagement.Controllers
                     await _context.SaveChangesAsync();
                 }
 
-                // Log it
+                // time logs
                 _context.TimeLogs.Add(new TimeLog
                 {
                     TaskId = task.Id,
@@ -158,7 +163,7 @@ namespace TaskManagement.Controllers
                 if (task == null || task.IsDeleted)
                     return NotFound("Task not found.");
 
-                // Validate story points
+                //  story points
                 if (dto.StoryPoints.HasValue && (dto.StoryPoints < 1 || dto.StoryPoints > 5))
                     return BadRequest("Story points must be between 1 and 5.");
 
@@ -198,7 +203,7 @@ namespace TaskManagement.Controllers
                 task.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
 
-                // Log changes
+                //  changes
                 if (changes.Any())
                 {
                     _context.TimeLogs.Add(new TimeLog

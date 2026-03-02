@@ -1,5 +1,4 @@
-﻿
-using TaskManagement.Data;
+﻿using TaskManagement.Data;
 using TaskManagement.DTOs;
 using TaskManagement.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -10,50 +9,57 @@ using Microsoft.EntityFrameworkCore;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
-
 namespace TaskManagement.Controllers
 {
     [Route("api/[controller]/[action]")]
     [ApiController]
-    
     public class AccountController(AccountDbContext context) : ControllerBase
     {
         private readonly AccountDbContext _context = context;
+        private readonly PasswordHasher<Account> _passwordHasher = new PasswordHasher<Account>();
+
         [HttpGet]
-        public async Task<ActionResult<List<Account>>> GetAccountsv1()
+        public async Task<ActionResult<List<Account>>> GetAccountsv1([FromQuery] int adminId)
         {
-            try {
+            var admin = await _context.Accounts.FindAsync(adminId);
+            if (admin == null || admin.Role != "Admin")
+                return StatusCode(403, "Access denied. Admins only.");
+
+            try
+            {
                 return Ok(await _context.Accounts.ToListAsync());
             }
-            catch(Exception ex) {
+            catch (Exception ex)
+            {
                 return BadRequest($"Internal server error: {ex.Message}");
             }
         }
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<Account>> GetAccountById(int id)
+        public async Task<ActionResult<Account>> GetAccountById(int id, [FromQuery] int adminId)
         {
-            
+            var admin = await _context.Accounts.FindAsync(adminId);
+            if (admin == null || admin.Role != "Admin")
+                return StatusCode(403, "Access denied. Admins only.");
+
             var account = await _context.Accounts.FindAsync(id);
             if (account == null)
-            {
                 return NotFound();
-            }
+
             return Ok(account);
         }
 
-        private readonly PasswordHasher<Account> _passwordHasher = new PasswordHasher<Account>();
         [HttpPost]
-        public async Task<ActionResult<Account>> CreateAccount([FromBody] Account newAccount)
+        public async Task<ActionResult<Account>> CreateAccount([FromBody] Account newAccount, [FromQuery] int adminId)
         {
+            var admin = await _context.Accounts.FindAsync(adminId);
+            if (admin == null || admin.Role != "Admin")
+                return StatusCode(403, "Access denied. Admins only.");
+
             if (newAccount is null)
-            {
                 return BadRequest();
-            }
 
-            // HASHING OF PASSWORD
             newAccount.PasswordHash = _passwordHasher.HashPassword(newAccount, newAccount.PasswordHash);
-
             newAccount.CreatedAt = DateTime.UtcNow;
             newAccount.UpdatedAt = DateTime.UtcNow;
 
@@ -64,8 +70,12 @@ namespace TaskManagement.Controllers
         }
 
         [HttpPatch("{id}")]
-        public async Task<IActionResult> UpdateAccount(int id, [FromBody] UpdateAccountDto updatedAccount)
+        public async Task<IActionResult> UpdateAccount(int id, [FromBody] UpdateAccountDto updatedAccount, [FromQuery] int adminId)
         {
+            var admin = await _context.Accounts.FindAsync(adminId);
+            if (admin == null || admin.Role != "Admin")
+                return StatusCode(403, "Access denied. Admins only.");
+
             var existingAccount = await _context.Accounts.FindAsync(id);
             if (existingAccount == null)
                 return NotFound();
@@ -75,13 +85,14 @@ namespace TaskManagement.Controllers
             if (updatedAccount.Email != null)
                 existingAccount.Email = updatedAccount.Email;
             if (updatedAccount.PasswordHash != null)
-                existingAccount.PasswordHash = _passwordHasher.HashPassword(existingAccount, updatedAccount.PasswordHash); // 👈 hash it
+                existingAccount.PasswordHash = _passwordHasher.HashPassword(existingAccount, updatedAccount.PasswordHash);
             if (updatedAccount.Role != null)
                 existingAccount.Role = updatedAccount.Role;
             if (updatedAccount.isActive.HasValue)
                 existingAccount.isActive = updatedAccount.isActive.Value;
             if (updatedAccount.ProfilePicture != null)
                 existingAccount.ProfilePicture = updatedAccount.ProfilePicture;
+
             existingAccount.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
             return NoContent();
@@ -103,6 +114,7 @@ namespace TaskManagement.Controllers
             return NoContent();
         }
 
+        // ✅ No admin check - anyone can upload their own profile picture
         [HttpPost("UploadProfilePicture/{id}")]
         public async Task<IActionResult> UploadProfilePicture(int id, IFormFile file)
         {
@@ -113,13 +125,11 @@ namespace TaskManagement.Controllers
             if (file == null || file.Length == 0)
                 return BadRequest("No file uploaded.");
 
-            // Allowed file types
             var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" };
             var extension = Path.GetExtension(file.FileName).ToLower();
             if (!allowedExtensions.Contains(extension))
                 return BadRequest("Only image files are allowed.");
 
-            // Save file to wwwroot/uploads/profiles
             var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "profiles");
             if (!Directory.Exists(uploadsFolder))
                 Directory.CreateDirectory(uploadsFolder);

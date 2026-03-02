@@ -96,8 +96,11 @@ namespace TaskManagement.Controllers
                         pmMember.Role = "ProjectManager-ScrumMaster";
                 }
 
+                if (dto.MemberIds.Distinct().Count() != dto.MemberIds.Count)
+                    return BadRequest("Duplicate member IDs are not allowed.");
+
                 // Add Members
-                foreach (var memberId in dto.MemberIds)
+                foreach (var memberId in dto.MemberIds.Distinct())
                 {
                     // Skip if already added as PM or SM
                     var alreadyAdded = await _context.ProjectMembers
@@ -149,6 +152,172 @@ namespace TaskManagement.Controllers
                     inner2 = ex.InnerException?.InnerException?.Message
                 });
 
+            }
+        }
+
+        // PATCH - Project Manager updates the project
+        [HttpPatch("UpdateProject/{projectId}")]
+        public async Task<IActionResult> UpdateProject(int projectId, [FromBody] UpdateProjectDTO dto, [FromQuery] int requesterId)
+        {
+            try
+            {
+                var project = await _context.Projects.FindAsync(projectId);
+                if (project == null || project.IsDeleted)
+                    return NotFound("Project not found.");
+
+                // Check if requester is the Project Manager or Admin
+                var requester = await _context.Accounts.FindAsync(requesterId);
+                if (requester == null)
+                    return NotFound("Requester account not found.");
+
+                // Check if requester is Project Manager of this project
+                var projectMember = await _context.ProjectMembers
+                    .SingleOrDefaultAsync(m => m.ProjectId == projectId && m.AccountId == requesterId);
+
+                var isAdmin = requester.Role == "Admin";
+                var isProjectManager = projectMember?.Role == "ProjectManager" ||
+                                       projectMember?.Role == "ProjectManager-ScrumMaster";
+
+                if (!isAdmin && !isProjectManager)
+                    return StatusCode(403, "Only the Project Manager or Admin can update this project.");
+
+                var changes = new List<string>();
+
+                // Update basic fields
+                if (dto.Name != null && dto.Name != project.Name)
+                {
+                    changes.Add($"Name: {project.Name} → {dto.Name}");
+                    project.Name = dto.Name;
+                }
+                if (dto.Description != null && dto.Description != project.Description)
+                {
+                    changes.Add($"Description updated");
+                    project.Description = dto.Description;
+                }
+                if (dto.Status != null && dto.Status != project.Status)
+                {
+                    changes.Add($"Status: {project.Status} → {dto.Status}");
+                    project.Status = dto.Status;
+                }
+
+                // Update Project Manager
+                if (dto.ProjectManagerId.HasValue && dto.ProjectManagerId != project.ProjectManagerId)
+                {
+                    // Remove old PM role
+                    var oldPm = await _context.ProjectMembers
+                        .FirstOrDefaultAsync(m => m.ProjectId == projectId && m.AccountId == project.ProjectManagerId);
+                    if (oldPm != null)
+                        _context.ProjectMembers.Remove(oldPm);
+
+                    // Add new PM
+                    var newPmExists = await _context.ProjectMembers
+                        .AnyAsync(m => m.ProjectId == projectId && m.AccountId == dto.ProjectManagerId.Value);
+                    if (!newPmExists)
+                    {
+                        _context.ProjectMembers.Add(new ProjectMember
+                        {
+                            ProjectId = projectId,
+                            AccountId = dto.ProjectManagerId.Value,
+                            Role = "ProjectManager",
+                            JoinedAt = DateTime.UtcNow
+                        });
+                    }
+
+                    changes.Add($"ProjectManager: {project.ProjectManagerId} → {dto.ProjectManagerId}");
+                    project.ProjectManagerId = dto.ProjectManagerId.Value;
+                }
+
+                // Update Scrum Master
+                if (dto.ScrumMasterId != project.ScrumMasterId)
+                {
+                    // Remove old SM role
+                    if (project.ScrumMasterId.HasValue)
+                    {
+                        var oldSm = await _context.ProjectMembers
+                            .FirstOrDefaultAsync(m => m.ProjectId == projectId && m.AccountId == project.ScrumMasterId);
+                        if (oldSm != null && oldSm.Role == "ScrumMaster")
+                            _context.ProjectMembers.Remove(oldSm);
+                    }
+
+                    // Add new SM
+                    if (dto.ScrumMasterId.HasValue)
+                    {
+                        var newSmExists = await _context.ProjectMembers
+                            .AnyAsync(m => m.ProjectId == projectId && m.AccountId == dto.ScrumMasterId.Value);
+                        if (!newSmExists)
+                        {
+                            _context.ProjectMembers.Add(new ProjectMember
+                            {
+                                ProjectId = projectId,
+                                AccountId = dto.ScrumMasterId.Value,
+                                Role = "ScrumMaster",
+                                JoinedAt = DateTime.UtcNow
+                            });
+                        }
+                    }
+
+                    changes.Add($"ScrumMaster: {project.ScrumMasterId} → {dto.ScrumMasterId}");
+                    project.ScrumMasterId = dto.ScrumMasterId;
+                }
+
+                // Update Members
+                if (dto.MemberIds != null)
+                {
+                    // Validate no duplicates
+                    if (dto.MemberIds.Distinct().Count() != dto.MemberIds.Count)
+                        return BadRequest("Duplicate member IDs are not allowed.");
+
+                    // Remove existing members only (not PM or SM)
+                    var existingMembers = await _context.ProjectMembers
+                        .Where(m => m.ProjectId == projectId && m.Role == "Member")
+                        .ToListAsync();
+                    _context.ProjectMembers.RemoveRange(existingMembers);
+
+                    // Add new members
+                    foreach (var memberId in dto.MemberIds.Distinct())
+                    {
+                        var alreadyAdded = await _context.ProjectMembers
+                            .AnyAsync(m => m.ProjectId == projectId && m.AccountId == memberId);
+
+                        if (!alreadyAdded)
+                        {
+                            _context.ProjectMembers.Add(new ProjectMember
+                            {
+                                ProjectId = projectId,
+                                AccountId = memberId,
+                                Role = "Member",
+                                JoinedAt = DateTime.UtcNow
+                            });
+                        }
+                    }
+                    changes.Add($"Members updated");
+                }
+
+                project.UpdatedAt = DateTime.UtcNow;
+
+                // Log changes
+                if (changes.Any())
+                {
+                    _context.TimeLogs.Add(new TimeLog
+                    {
+                        TaskId = null,
+                        AccountId = requesterId,
+                        Action = "ProjectUpdated",
+                        NewValue = string.Join(", ", changes),
+                        Note = $"Project updated by {requester.Role}"
+                    });
+                }
+
+                await _context.SaveChangesAsync();
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    error = ex.Message,
+                    inner = ex.InnerException?.Message
+                });
             }
         }
 
